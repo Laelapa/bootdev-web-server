@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type apiConfig struct {
@@ -63,28 +64,40 @@ func validateChirp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type responseJSON struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	inc := incomingJSON{}
 	err := decoder.Decode(&inc)
+
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
 		return
 	}
+
 	if len(inc.Body) > 140 {
 		errRes(errors.New("chirp is too long"), w, "Chirp is too long", 400)
 		return
 	}
-	resJSON := responseJSON {
-		Valid: true,
+
+	c := inc.Body
+
+	for _, v := range []string{"kerfuffle", "sharbert", "fornax"} {
+		c = profanityFilter(c, v)
 	}
+
+	resJSON := responseJSON {
+		CleanedBody: c,
+	}
+
 	res, err := json.Marshal(resJSON)
+
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write(res)
@@ -106,6 +119,18 @@ func errRes(err error, w http.ResponseWriter, report string, errCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(errCode)
 	w.Write(res)
+}
+
+func profanityFilter(strToFilter string, badword string) string {
+	s := strings.Split(strToFilter, " ")
+	for i, str := range s {
+		if strings.ToLower(str) == badword {
+		s[i] = strings.Replace(strings.ToLower(str), badword, "****", -1)
+		}
+	}
+	
+	return strings.Join(s, " ")
+
 }
 
 func main() {
