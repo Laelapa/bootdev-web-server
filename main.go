@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
 )
 
 type apiConfig struct {
@@ -87,7 +89,7 @@ func validateChirp(w http.ResponseWriter, r *http.Request) {
 		c = profanityFilter(c, v)
 	}
 
-	resJSON := responseJSON {
+	resJSON := responseJSON{
 		CleanedBody: c,
 	}
 
@@ -108,13 +110,13 @@ func errRes(err error, w http.ResponseWriter, report string, errCode int) {
 		ErrorBody string `json:"error"`
 	}
 
-	log.Printf("%s", err)
-	errJSON := errorJSON {
+	fmt.Printf("%s", err)
+	errJSON := errorJSON{
 		ErrorBody: report,
 	}
 	res, err := json.Marshal(errJSON)
 	if err != nil {
-		log.Printf("Error trying to send an error response: %s", err)
+		fmt.Println("Error trying to send an error response: ", err)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(errCode)
@@ -125,16 +127,21 @@ func profanityFilter(strToFilter string, badword string) string {
 	s := strings.Split(strToFilter, " ")
 	for i, str := range s {
 		if strings.ToLower(str) == badword {
-		s[i] = strings.Replace(strings.ToLower(str), badword, "****", -1)
+			s[i] = strings.Replace(strings.ToLower(str), badword, "****", -1)
 		}
 	}
-	
+
 	return strings.Join(s, " ")
 
 }
 
 func main() {
 	fmt.Println("Server booting...")
+	db, err :=database.NewDB("./database.json")
+	if err != nil {
+		fmt.Println("Error on trying to init the db: ", err)
+		return
+	}
 	var apiCfg apiConfig
 	mux := http.NewServeMux()
 	fServer := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
@@ -142,13 +149,13 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
+	mux.HandleFunc("POST /api/chirps", validateChirp)
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
 	}
 	fmt.Println("### SERVER RUNNING ###")
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	if err != nil {
 		fmt.Println("Error on ListenAndServe() call:", err)
 		return
