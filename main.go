@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"strings"
 
@@ -60,13 +59,27 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func validateChirp(w http.ResponseWriter, r *http.Request) {
-	type incomingJSON struct {
-		Body string `json:"body"`
+func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
+	chirps, err := db.GetChirps()
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return	
 	}
 
-	type responseJSON struct {
-		CleanedBody string `json:"cleaned_body"`
+	res, err := json.Marshal(chirps)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write(res)
+}
+
+func validateChirp(w http.ResponseWriter, r *http.Request, db *database.DB) {
+	type incomingJSON struct {
+		Body string `json:"body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -89,19 +102,20 @@ func validateChirp(w http.ResponseWriter, r *http.Request) {
 		c = profanityFilter(c, v)
 	}
 
-	resJSON := responseJSON{
-		CleanedBody: c,
+	chrp, err := db.CreateChirp(c)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
 	}
 
-	res, err := json.Marshal(resJSON)
-
+	res, err := json.Marshal(chrp)
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(201)
 	w.Write(res)
 }
 
@@ -137,11 +151,12 @@ func profanityFilter(strToFilter string, badword string) string {
 
 func main() {
 	fmt.Println("Server booting...")
-	db, err :=database.NewDB("./database.json")
+	db, err :=database.NewDB("/database.json")
 	if err != nil {
 		fmt.Println("Error on trying to init the db: ", err)
 		return
 	}
+
 	var apiCfg apiConfig
 	mux := http.NewServeMux()
 	fServer := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
@@ -149,7 +164,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
-	mux.HandleFunc("POST /api/chirps", validateChirp)
+	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) {validateChirp(w, r, db)})
+	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) {fetchChirps(w, r, db)})
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
