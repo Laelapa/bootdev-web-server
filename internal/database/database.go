@@ -30,7 +30,9 @@ type DBStructureStr struct {
 
 // Convert a DBStructure to a DBStructureStr, which contains string keys instead of int
 func (db *DBStructure) mapItoa() *DBStructureStr {
-	itoa := DBStructureStr{}
+	itoa := DBStructureStr{
+		Chirps: make(map[string]Chirp),
+	}
 
 	for i, v := range db.Chirps {
 		itoa.Chirps[strconv.Itoa(i)] = v
@@ -40,8 +42,10 @@ func (db *DBStructure) mapItoa() *DBStructureStr {
 }
 
 func NewDB(path string) (*DB, error) {
-	d := &DB{}
-	d.path = path
+	d := &DB{
+		path: path,
+		mux:  &sync.RWMutex{},
+	}
 
 	err := d.ensureDB()
 	if err != nil {
@@ -77,8 +81,12 @@ func (db *DB) loadDB() (DBStructure, error) {
 	if err != nil {
 		return DBStructure{}, fmt.Errorf("failed while reading file: %w", err)
 	}
+	fmt.Println("dbFileBytes:", string(dbFileBytes))
 
 	var mDB DBStructure
+
+	mDB.Chirps = make(map[int]Chirp)
+
 	json.Unmarshal(dbFileBytes, &mDB)
 	return mDB, nil
 }
@@ -118,12 +126,13 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chrp, nil
 }
 
-// Returns a, sorted by id, slice of all the chirps in the structure. Leaves space in
-// the underlying array for one more chirp
+// Returns a, sorted by id, slice of all the chirps in the structure.
+// Leaves space inthe underlying array for one more chirp
 func (dbStructure *DBStructure) chirpsToSlice() []Chirp {
-	chrp := make([]Chirp, len(dbStructure.Chirps), len(dbStructure.Chirps)+1)
-	for i, v := range dbStructure.Chirps {
-		chrp[i] = v
+	chrp := make([]Chirp, 0, len(dbStructure.Chirps)+1)
+	for _, v := range dbStructure.Chirps {
+		// append instead of chrp[i] = v to avoid panic due to line 152
+		chrp = append(chrp, v) 
 	}
 
 	sort.Slice(chrp, func(a, b int) bool { return chrp[a].ID < chrp[b].ID })
@@ -140,9 +149,10 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 
 	chirps := dbStructure.chirpsToSlice()
 
-	var chrp Chirp
-	chrp.Body = body
-	chrp.ID = len(chirps)
+	chrp := Chirp{
+		ID:   len(chirps) + 1,
+		Body: body,
+	}
 	dbStructure.Chirps[chrp.ID] = chrp
 
 	err = db.writeDB(dbStructure)

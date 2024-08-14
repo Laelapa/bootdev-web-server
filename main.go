@@ -63,7 +63,7 @@ func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
 	chirps, err := db.GetChirps()
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
-		return	
+		return
 	}
 
 	res, err := json.Marshal(chirps)
@@ -151,7 +151,7 @@ func profanityFilter(strToFilter string, badword string) string {
 
 func main() {
 	fmt.Println("Server booting...")
-	db, err :=database.NewDB("/database.json")
+	db, err := database.NewDB("database.json")
 	if err != nil {
 		fmt.Println("Error on trying to init the db: ", err)
 		return
@@ -164,8 +164,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
-	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) {validateChirp(w, r, db)})
-	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) {fetchChirps(w, r, db)})
+	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) { validateChirp(w, r, db) })
+	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
