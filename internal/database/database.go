@@ -10,9 +10,26 @@ import (
 	"sync"
 )
 
+type DBEntry interface {
+	GetID() int
+}
+
 type Chirp struct {
 	ID   int    `json:"id"`
 	Body string `json:"body"`
+}
+
+func (c Chirp) GetID() int {
+	return c.ID
+}
+
+type User struct {
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+}
+
+func (u User) GetID() int {
+	return u.ID
 }
 
 type DB struct {
@@ -22,20 +39,27 @@ type DB struct {
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
 }
 
 type DBStructureStr struct {
 	Chirps map[string]Chirp `json:"chirps"`
+	Users  map[string]User  `json:"users"`
 }
 
 // Convert a DBStructure to a DBStructureStr, which contains string keys instead of int
 func (db *DBStructure) mapItoa() *DBStructureStr {
 	itoa := DBStructureStr{
 		Chirps: make(map[string]Chirp),
+		Users:  make(map[string]User),
 	}
 
 	for i, v := range db.Chirps {
 		itoa.Chirps[strconv.Itoa(i)] = v
+	}
+
+	for i, v := range db.Users {
+		itoa.Users[strconv.Itoa(i)] = v
 	}
 
 	return &itoa
@@ -86,6 +110,7 @@ func (db *DB) loadDB() (DBStructure, error) {
 	var mDB DBStructure
 
 	mDB.Chirps = make(map[int]Chirp)
+	mDB.Users = make(map[int]User)
 
 	json.Unmarshal(dbFileBytes, &mDB)
 	return mDB, nil
@@ -132,28 +157,54 @@ func (db *DB) GetChirp(id int) (Chirp, error) {
 	return Chirp{}, nil
 }
 
+// Returns a single user with matching ID. If none found returns zero value and nil error
+func (db *DB) GetUser(id int) (User, error) {
+	users, err := db.GetUsers()
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	for _, v := range users {
+		if v.ID == id {
+			return v, nil
+		}
+	}
+
+	return User{}, nil
+}
+
 func (db *DB) GetChirps() ([]Chirp, error) {
 	DBs, err := db.loadDB()
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}
 
-	chrp := DBs.chirpsToSlice()
+	chrp := toSlice(DBs.Chirps)
 	return chrp, nil
 }
 
-// Returns a, sorted by id, slice of all the chirps in the structure.
-// Leaves space inthe underlying array for one more chirp
-func (dbStructure *DBStructure) chirpsToSlice() []Chirp {
-	chrp := make([]Chirp, 0, len(dbStructure.Chirps)+1)
-	for _, v := range dbStructure.Chirps {
-		// append instead of chrp[i] = v to avoid panic due to line 152
-		chrp = append(chrp, v) 
+func (db *DB) GetUsers() ([]User, error) {
+	DBs, err := db.loadDB()
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
 	}
 
-	sort.Slice(chrp, func(a, b int) bool { return chrp[a].ID < chrp[b].ID })
+	usr := toSlice(DBs.Users)
+	return usr, nil
+}
 
-	return chrp
+// Returns a, sorted by id, slice of all the DBEntries in the structure.
+// Leaves space in the underlying array for one more chirp
+func toSlice[T DBEntry](entries map[int]T) []T {
+	sliceOfEntries := make([]T, 0, len(entries)+1)
+	for _, v := range entries {
+		// append instead of e[i] = v to avoid panic due to line 152
+		sliceOfEntries = append(sliceOfEntries, v)
+	}
+
+	sort.Slice(sliceOfEntries, func(a, b int) bool { return sliceOfEntries[a].GetID() < sliceOfEntries[b].GetID() })
+
+	return sliceOfEntries
 }
 
 // Creates a new chirp in the database and also returns it
@@ -163,7 +214,7 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 		return Chirp{}, fmt.Errorf("%w", err)
 	}
 
-	chirps := dbStructure.chirpsToSlice()
+	chirps := toSlice(dbStructure.Chirps)
 
 	chrp := Chirp{
 		ID:   len(chirps) + 1,
@@ -177,4 +228,27 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	}
 
 	return chrp, nil
+}
+
+// Creates a new user in the database and also returns it
+func (db *DB) CreateUser(email string) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	users := toSlice(dbStructure.Users)
+
+	usr := User{
+		ID:    len(users) + 1,
+		Email: email,
+	}
+	dbStructure.Users[usr.ID] = usr
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	return usr, nil
 }

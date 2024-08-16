@@ -95,7 +95,7 @@ func chirpGetter(w http.ResponseWriter, r *http.Request, db *database.DB) {
 
 }
 
-func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
+func fetchChirps(w http.ResponseWriter, _ *http.Request, db *database.DB) {
 	chirps, err := db.GetChirps()
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
@@ -111,6 +111,38 @@ func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write(res)
+}
+
+func createUserHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {
+	type incomingJSON struct {
+		Email string `json:"email"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	inc := incomingJSON{}
+	err := decoder.Decode(&inc)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	email := inc.Email
+
+	rUsr, err := db.CreateUser(email)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	res, err := json.Marshal(rUsr)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	w.Write(res)
+
 }
 
 func validateChirp(w http.ResponseWriter, r *http.Request, db *database.DB) {
@@ -200,6 +232,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /api/users", func(w http.ResponseWriter, r *http.Request) { createUserHandler(w, r, db) })
 	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) { validateChirp(w, r, db) })
 	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })
 	mux.HandleFunc("GET /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpGetter(w, r, db) })
