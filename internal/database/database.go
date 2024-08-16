@@ -116,6 +116,22 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 	return nil
 }
 
+// Returns a single chirp with matching ID. If none found returns zero value and nil error
+func (db *DB) GetChirp(id int) (Chirp, error) {
+	chirps, err := db.GetChirps()
+	if err != nil {
+		return Chirp{}, fmt.Errorf("%w", err)
+	}
+
+	for _, v := range chirps {
+		if v.ID == id {
+			return v, nil
+		}
+	}
+
+	return Chirp{}, nil
+}
+
 func (db *DB) GetChirps() ([]Chirp, error) {
 	DBs, err := db.loadDB()
 	if err != nil {

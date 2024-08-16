@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
@@ -57,6 +58,41 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write([]byte("OK"))
+}
+
+func chirpGetter(w http.ResponseWriter, r *http.Request, db *database.DB) {
+	chirpID := r.PathValue("chirpID")
+	if chirpID == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	chirpIDi, err := strconv.Atoi(chirpID)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	chrp, err := db.GetChirp(chirpIDi)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+	if chrp.ID == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	res, err := json.Marshal(chrp)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write(res)
+
 }
 
 func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
@@ -166,6 +202,7 @@ func main() {
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
 	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) { validateChirp(w, r, db) })
 	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })
+	mux.HandleFunc("GET /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpGetter(w, r, db) })
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
