@@ -18,7 +18,6 @@ type apiConfig struct {
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
 	w.Write([]byte("OK"))
 }
 
@@ -56,7 +55,6 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
 func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.FileserverHits = 0
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
 	w.Write([]byte("OK"))
 }
 
@@ -90,7 +88,6 @@ func chirpGetter(w http.ResponseWriter, r *http.Request, db *database.DB) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
 	w.Write(res)
 
 }
@@ -109,13 +106,13 @@ func fetchChirps(w http.ResponseWriter, _ *http.Request, db *database.DB) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
 	w.Write(res)
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {
 	type incomingJSON struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -127,9 +124,14 @@ func createUserHandler(w http.ResponseWriter, r *http.Request, db *database.DB) 
 	}
 
 	email := inc.Email
+	password := inc.Password
 
-	rUsr, err := db.CreateUser(email)
+	rUsr, err := db.CreateUser(email, password)
 	if err != nil {
+		if errors.Is(err, database.ErrEmailInUse) {
+			errRes(err, w, "Email already in use", 409)
+			return
+		}
 		errRes(err, w, "Something went wrong", 500)
 		return
 	}
@@ -143,6 +145,47 @@ func createUserHandler(w http.ResponseWriter, r *http.Request, db *database.DB) 
 	w.WriteHeader(201)
 	w.Write(res)
 
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {
+	type incomingJSON struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	inc := incomingJSON{}
+	err := decoder.Decode(&inc)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	successfulLogin, err := db.LoginUser(inc.Email, inc.Password)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	if !successfulLogin {
+		errRes(err, w, "Wrong credentials", 401)
+		return
+	}
+
+	user, err := db.GetUserByEmailSanitized(inc.Email)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	res, err := json.Marshal(user)
+	if err != nil {
+		errRes(err, w, "Something went wrong", 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
 }
 
 func validateChirp(w http.ResponseWriter, r *http.Request, db *database.DB) {
@@ -233,6 +276,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
 	mux.HandleFunc("POST /api/users", func(w http.ResponseWriter, r *http.Request) { createUserHandler(w, r, db) })
+	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) { loginHandler(w, r, db) })
 	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) { validateChirp(w, r, db) })
 	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })
 	mux.HandleFunc("GET /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpGetter(w, r, db) })

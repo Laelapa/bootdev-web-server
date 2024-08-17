@@ -1,0 +1,147 @@
+package database
+
+import (
+	"errors"
+	"fmt"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+var ErrEmailInUse = errors.New("email already in use")
+
+// Returns a single user with matching ID.
+// If none found returns zero value and nil error.
+func (db *DB) GetUser(id int) (User, error) {
+	users, err := db.GetUsers()
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	for _, v := range users {
+		if v.ID == id {
+			return v, nil
+		}
+	}
+
+	return User{}, nil
+}
+
+// Returns a single user with matching email.
+// If none found returns zero value and nil error.
+func (db *DB) GetUserByEmail(email string) (User, error) {
+	users, err := db.GetUsers()
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	for _, v := range users {
+		if v.Email == email {
+			return v, nil
+		}
+	}
+
+	return User{}, nil
+}
+
+func (db *DB) GetUserByEmailSanitized(email string) (UserR, error) {
+	usr, err := db.GetUserByEmail(email)
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	var usrResp UserR
+
+	usrResp.ID = usr.ID
+	usrResp.Email = usr.Email
+
+	return usrResp, nil
+}
+
+// Returns `true` if the email already exists in the database.
+func (db *DB) CheckEmailTaken(email string) (isTaken bool, err error) {
+	usr, err := db.GetUserByEmail(email)
+	if err != nil {
+		return false, fmt.Errorf("%w", err)
+	}
+
+	if usr.ID == 0 && usr.Email == "" {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (db *DB) LoginUser(email string, pwd string) (bool, error) {
+	emailExists, err := db.CheckEmailTaken(email)
+	if err != nil {
+		return false, fmt.Errorf("%w", err)
+	}
+
+	if !emailExists {
+		return false, nil
+	}
+
+	user, err := db.GetUserByEmail(email)
+	if err != nil {
+		return false, fmt.Errorf("%w", err)
+	}
+
+	err = bcrypt.CompareHashAndPassword(user.Password, []byte(pwd))
+	if err != nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (db *DB) GetUsers() ([]User, error) {
+	DBs, err := db.loadDB()
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
+	}
+
+	usr := toSlice(DBs.Users)
+	return usr, nil
+}
+
+// Creates a new user in the database and also returns it, without including the pwd
+func (db *DB) CreateUser(email string, pwd string) (UserR, error) {
+	emailTaken, err := db.CheckEmailTaken(email)
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	if emailTaken {
+		return UserR{}, ErrEmailInUse
+	}
+
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	users := toSlice(dbStructure.Users)
+	pwdHash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	usr := User{
+		ID:       len(users) + 1,
+		Email:    email,
+		Password: pwdHash,
+	}
+	dbStructure.Users[usr.ID] = usr
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	var usrResp UserR
+
+	usrResp.ID = usr.ID
+	usrResp.Email = usr.Email
+
+	return usrResp, nil
+}
