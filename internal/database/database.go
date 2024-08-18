@@ -53,7 +53,6 @@ func (db *DB) loadDB() (DBStructure, error) {
 	if err != nil {
 		return DBStructure{}, fmt.Errorf("failed while reading file: %w", err)
 	}
-	fmt.Println("dbFileBytes:", string(dbFileBytes))
 
 	var mDB DBStructure
 

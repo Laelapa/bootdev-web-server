@@ -27,6 +27,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {
 	if err != nil {
 		if errors.Is(err, database.ErrWrongCredentials) {
 			errRes(err, w, "Wrong email or password", 401)
+			return
 		}
 		errRes(err, w, "Something went wrong", 500)
 		return
