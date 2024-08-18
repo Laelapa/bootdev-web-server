@@ -1,11 +1,13 @@
-package main
+package authentication
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/joho/godotenv"
 )
 
 const oneDay = 84600
@@ -21,7 +23,10 @@ func validateExpiration(expiresInSeconds int) int {
 	return expiresInSeconds
 }
 
-func generateJWT(userID, expiresInSeconds int, secretKey string) (string, error) {
+func GenerateJWT(userID, expiresInSeconds int) (string, error) {
+
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	expiresInSeconds = validateExpiration(expiresInSeconds)
 
@@ -33,7 +38,7 @@ func generateJWT(userID, expiresInSeconds int, secretKey string) (string, error)
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(secretKey))
+	signedToken, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}

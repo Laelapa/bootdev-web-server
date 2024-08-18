@@ -31,6 +31,7 @@ func (u User) GetID() int {
 type UserR struct {
 	ID    int    `json:"id"`
 	Email string `json:"email"`
+	Token string `json:"token"`
 }
 
 func (u UserR) GetID() int {

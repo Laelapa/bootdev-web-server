@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"gitlab.com/demetrius.papas/bootdev-web-server/internal/authentication"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
 var ErrEmailInUse = errors.New("email already in use")
+var ErrWrongCredentials = errors.New("wrong username or password")
 
 // Returns a single user with matching ID.
 // If none found returns zero value and nil error.
@@ -71,27 +74,39 @@ func (db *DB) CheckEmailTaken(email string) (isTaken bool, err error) {
 	return true, nil
 }
 
-func (db *DB) LoginUser(email string, pwd string) (bool, error) {
+func (db *DB) LoginUser(email string, pwd string, expiresInSeconds int) (UserR, error) {
 	emailExists, err := db.CheckEmailTaken(email)
 	if err != nil {
-		return false, fmt.Errorf("%w", err)
+		return UserR{}, fmt.Errorf("%w", err)
 	}
 
 	if !emailExists {
-		return false, nil
+		return UserR{}, ErrWrongCredentials
 	}
 
 	user, err := db.GetUserByEmail(email)
 	if err != nil {
-		return false, fmt.Errorf("%w", err)
+		return UserR{}, fmt.Errorf("%w", err)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.Password, []byte(pwd))
 	if err != nil {
-		return false, nil
+		return UserR{}, ErrWrongCredentials
 	}
 
-	return true, nil
+	userSan, err := db.GetUserByEmailSanitized(user.Email)
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	token, err := authentication.GenerateJWT(user.ID, expiresInSeconds)
+	if err != nil {
+		return UserR{}, fmt.Errorf("%w", err)
+	}
+
+	userSan.Token = token
+
+	return userSan, nil
 }
 
 func (db *DB) GetUsers() ([]User, error) {
