@@ -1,267 +1,24 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
-	"strconv"
-	"strings"
+	"os"
 
+	"github.com/joho/godotenv"
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
 )
 
 type apiConfig struct {
 	FileserverHits int
-}
-
-func readinessHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Write([]byte("OK"))
-}
-
-func (cfg *apiConfig) middlewareMectricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.FileserverHits++
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(200)
-	tmpl, err := template.New("metrics").Parse(`
-		<html>
-
-		<body>
-    		<h1>Welcome, Chirpy Admin</h1>
-    		<p>Chirpy has been visited {{ .FileserverHits }} times!</p>
-		</body>
-
-		</html>
-	`)
-	if err != nil {
-		fmt.Println("Error while parsing HTML:", err)
-		return
-	}
-	err = tmpl.Execute(w, cfg)
-	if err != nil {
-		fmt.Println("Error while executing the template:", err)
-		return
-	}
-}
-
-func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
-	cfg.FileserverHits = 0
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Write([]byte("OK"))
-}
-
-func chirpGetter(w http.ResponseWriter, r *http.Request, db *database.DB) {
-	chirpID := r.PathValue("chirpID")
-	if chirpID == "" {
-		http.NotFound(w, r)
-		return
-	}
-
-	chirpIDi, err := strconv.Atoi(chirpID)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	chrp, err := db.GetChirp(chirpIDi)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-	if chrp.ID == 0 {
-		http.NotFound(w, r)
-		return
-	}
-
-	res, err := json.Marshal(chrp)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
-
-}
-
-func fetchChirps(w http.ResponseWriter, _ *http.Request, db *database.DB) {
-	chirps, err := db.GetChirps()
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	res, err := json.Marshal(chirps)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
-}
-
-func createUserHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {
-	type incomingJSON struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	inc := incomingJSON{}
-	err := decoder.Decode(&inc)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	email := inc.Email
-	password := inc.Password
-
-	rUsr, err := db.CreateUser(email, password)
-	if err != nil {
-		if errors.Is(err, database.ErrEmailInUse) {
-			errRes(err, w, "Email already in use", 409)
-			return
-		}
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	res, err := json.Marshal(rUsr)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	w.Write(res)
-
-}
-
-func loginHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {
-	type incomingJSON struct {
-		Password string `json:"password"`
-		Email    string `json:"email"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	inc := incomingJSON{}
-	err := decoder.Decode(&inc)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	successfulLogin, err := db.LoginUser(inc.Email, inc.Password)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	if !successfulLogin {
-		errRes(err, w, "Wrong credentials", 401)
-		return
-	}
-
-	user, err := db.GetUserByEmailSanitized(inc.Email)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	res, err := json.Marshal(user)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
-}
-
-func validateChirp(w http.ResponseWriter, r *http.Request, db *database.DB) {
-	type incomingJSON struct {
-		Body string `json:"body"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	inc := incomingJSON{}
-	err := decoder.Decode(&inc)
-
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	if len(inc.Body) > 140 {
-		errRes(errors.New("chirp is too long"), w, "Chirp is too long", 400)
-		return
-	}
-
-	c := inc.Body
-
-	for _, v := range []string{"kerfuffle", "sharbert", "fornax"} {
-		c = profanityFilter(c, v)
-	}
-
-	chrp, err := db.CreateChirp(c)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	res, err := json.Marshal(chrp)
-	if err != nil {
-		errRes(err, w, "Something went wrong", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	w.Write(res)
-}
-
-func errRes(err error, w http.ResponseWriter, report string, errCode int) {
-	type errorJSON struct {
-		ErrorBody string `json:"error"`
-	}
-
-	fmt.Printf("%s", err)
-	errJSON := errorJSON{
-		ErrorBody: report,
-	}
-	res, err := json.Marshal(errJSON)
-	if err != nil {
-		fmt.Println("Error trying to send an error response: ", err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(errCode)
-	w.Write(res)
-}
-
-func profanityFilter(strToFilter string, badword string) string {
-	s := strings.Split(strToFilter, " ")
-	for i, str := range s {
-		if strings.ToLower(str) == badword {
-			s[i] = strings.Replace(strings.ToLower(str), badword, "****", -1)
-		}
-	}
-
-	return strings.Join(s, " ")
-
+	jwtSecret      string
 }
 
 func main() {
 	fmt.Println("Server booting...")
+
+	godotenv.Load()
+
 	db, err := database.NewDB("database.json")
 	if err != nil {
 		fmt.Println("Error on trying to init the db: ", err)
@@ -269,6 +26,8 @@ func main() {
 	}
 
 	var apiCfg apiConfig
+	apiCfg.jwtSecret = os.Getenv("JWT_SECRET")
+
 	mux := http.NewServeMux()
 	fServer := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
 	mux.Handle("/app/*", apiCfg.middlewareMectricsInc(fServer))
