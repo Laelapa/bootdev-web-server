@@ -35,6 +35,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
 	mux.HandleFunc("POST /api/users", func(w http.ResponseWriter, r *http.Request) { createUserHandler(w, r, db) })
+	mux.HandleFunc("PUT /api/users", func(w http.ResponseWriter, r *http.Request) { userUpdateHandler(w, r, db)	})
 	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) { loginHandler(w, r, db) })
 	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) { validateChirp(w, r, db) })
 	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })

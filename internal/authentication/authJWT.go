@@ -45,3 +45,25 @@ func GenerateJWT(userID, expiresInSeconds int) (string, error) {
 
 	return signedToken, nil
 }
+
+func ValidateJWT(tokenStr string) (int, error) {
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
+
+	token, err := jwt.ParseWithClaims(tokenStr, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("wrong signing method: %v", token.Header["alg"])
+		}
+
+		return []byte(jwtSecret), nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	uIDstr, _ := token.Claims.GetSubject()
+	uID, _ := strconv.Atoi(uIDstr)
+
+	return uID, nil
+}

@@ -119,6 +119,39 @@ func (db *DB) GetUsers() ([]User, error) {
 	return usr, nil
 }
 
+func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
+	users, err := db.GetUsers()
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	 DBs, err := db.loadDB()
+	 if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	pwdHash, err := bcrypt.GenerateFromPassword([]byte(uPwd), bcrypt.DefaultCost)
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	for i, v := range users {
+		if v.ID == uID {
+			users[i].Email = uEmail
+			users[i].Password = pwdHash
+		}
+
+		DBs.Users[i] = users[i]
+	}
+
+	err = db.writeDB(DBs)
+	if err != nil {
+		return User{}, fmt.Errorf("%w", err)
+	}
+
+	return User{ ID: uID, Email: uEmail, }, nil
+} 
+
 // Creates a new user in the database and also returns it, without including the pwd
 func (db *DB) CreateUser(email string, pwd string) (UserR, error) {
 	emailTaken, err := db.CheckEmailTaken(email)
