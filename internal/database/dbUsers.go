@@ -3,14 +3,15 @@ package database
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/authentication"
-
 	"golang.org/x/crypto/bcrypt"
 )
 
 var ErrEmailInUse = errors.New("email already in use")
 var ErrWrongCredentials = errors.New("wrong username or password")
+var ErrInvalidRefToken = errors.New("invalid or expired refresh token")
 
 // Returns a single user with matching ID.
 // If none found returns zero value and nil error.
@@ -105,6 +106,17 @@ func (db *DB) LoginUser(email string, pwd string, expiresInSeconds int) (UserR, 
 	}
 
 	userSan.Token = token
+	userSan.RefToken, err = authentication.GenerateRefreshToken()
+	if err != nil {
+		return UserR{}, fmt.Errorf("error while trying to attribute a refresh token to the user: %w", err)
+	}
+	user.RefToken = userSan.RefToken
+	user.RefExp = time.Now().Add(time.Hour * 24 * 60).Unix() // 60 days validity
+
+	err = db.updateUserRefreshToken(user.ID, user.RefToken, user.RefExp)
+	if err != nil {
+		return UserR{}, fmt.Errorf("error while trying to register a refresh token to the db: %w", err)
+	}
 
 	return userSan, nil
 }
@@ -125,8 +137,8 @@ func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
 		return User{}, fmt.Errorf("%w", err)
 	}
 
-	 DBs, err := db.loadDB()
-	 if err != nil {
+	DBs, err := db.loadDB()
+	if err != nil {
 		return User{}, fmt.Errorf("%w", err)
 	}
 
@@ -149,8 +161,77 @@ func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
 		return User{}, fmt.Errorf("%w", err)
 	}
 
-	return User{ ID: uID, Email: uEmail, }, nil
-} 
+	return User{ID: uID, Email: uEmail}, nil
+}
+
+func (db *DB) updateUserRefreshToken(uID int, refToken string, refExp int64) error {
+	dbData, err := db.loadDB()
+	if err != nil {
+		return fmt.Errorf("error while trying to pull the db: %w", err)
+	}
+
+	for i, v := range dbData.Users {
+		if v.ID == uID {
+			u := dbData.Users[i]
+			u.RefToken = refToken
+			u.RefExp = refExp
+			dbData.Users[i] = u
+
+			err = db.writeDB(dbData)
+			if err != nil {
+				return fmt.Errorf("error while trying to write the ref token to the db: %w", err)
+			}
+
+			return nil
+		}
+	}
+
+	return ErrWrongCredentials
+}
+
+func (db *DB) CheckUserRefreshToken(refToken string) (userID int, err error) {
+	dbData, err := db.loadDB()
+	if err != nil {
+		return 0, fmt.Errorf("error while trying to pull the db: %w", err)
+	}
+
+	for i := range dbData.Users {
+		if refToken == dbData.Users[i].RefToken {
+			if dbData.Users[i].RefExp < time.Now().Unix() {
+				return dbData.Users[i].ID, nil
+			} else {
+				return 0, ErrInvalidRefToken
+			}
+		}
+	}
+
+	return 0, ErrInvalidRefToken
+}
+
+func (db *DB) RevokeUserRefreshToken(refToken string) error {
+	dbData, err := db.loadDB()
+	if err != nil {
+		return fmt.Errorf("error while trying to pull the db: %w", err)
+	}
+
+	for i := range dbData.Users {
+		if refToken == dbData.Users[i].RefToken {
+			user := dbData.Users[i]
+			user.RefToken = ""
+			user.RefExp = 0
+			dbData.Users[i] = user
+
+			err = db.writeDB(dbData)
+			if err != nil {
+				return fmt.Errorf("error while trying to del the ref token from the db: %w", err)
+			}
+
+			return nil
+		}
+	}
+
+	return ErrInvalidRefToken
+}
 
 // Creates a new user in the database and also returns it, without including the pwd
 func (db *DB) CreateUser(email string, pwd string) (UserR, error) {

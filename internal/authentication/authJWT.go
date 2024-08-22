@@ -10,17 +10,19 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const oneDay = 84600
-const defaultDuration = oneDay
+const oneHour = 3600
+
+// const oneDay = 84600
+const defaultDuration = oneHour
 
 // If time set by user > 24h OR isn't set OR is invalid return DEFAULT_DURATION
 // Else return the time set by user
-func validateExpiration(expiresInSeconds int) int {
-	if expiresInSeconds > defaultDuration || expiresInSeconds <= 0 {
-		return defaultDuration
-	}
+func validateExpiration(_ int) int {
+	// if expiresInSeconds > defaultDuration || expiresInSeconds <= 0 {
+	// 	return defaultDuration
+	// }
 
-	return expiresInSeconds
+	return defaultDuration
 }
 
 func GenerateJWT(userID, expiresInSeconds int) (string, error) {

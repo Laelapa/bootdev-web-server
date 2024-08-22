@@ -37,6 +37,8 @@ func main() {
 	mux.HandleFunc("POST /api/users", func(w http.ResponseWriter, r *http.Request) { createUserHandler(w, r, db) })
 	mux.HandleFunc("PUT /api/users", func(w http.ResponseWriter, r *http.Request) { userUpdateHandler(w, r, db)	})
 	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) { loginHandler(w, r, db) })
+	mux.HandleFunc("POST /api/refresh", func(w http.ResponseWriter, r *http.Request) { refreshHandler(w, r, db) })
+	mux.HandleFunc("POST /api/revoke", func(w http.ResponseWriter, r *http.Request) { revokeHandler(w, r, db) })
 	mux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) { validateChirp(w, r, db) })
 	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })
 	mux.HandleFunc("GET /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpGetter(w, r, db) })

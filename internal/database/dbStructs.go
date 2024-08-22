@@ -10,8 +10,9 @@ type DBEntry interface {
 }
 
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	ID       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorID int    `json:"author_id"`
 }
 
 func (c Chirp) GetID() int {
@@ -22,6 +23,8 @@ type User struct {
 	ID       int    `json:"id"`
 	Email    string `json:"email"`
 	Password []byte `json:"password"`
+	RefToken string `json:"refresh_token"`
+	RefExp   int64  `json:"refresh_token_expiration"` // in unix time
 }
 
 func (u User) GetID() int {
@@ -29,9 +32,10 @@ func (u User) GetID() int {
 }
 
 type UserR struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
-	Token string `json:"token"`
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Token    string `json:"token"`
+	RefToken string `json:"refresh_token"`
 }
 
 func (u UserR) GetID() int {
