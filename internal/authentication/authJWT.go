@@ -48,7 +48,7 @@ func GenerateJWT(userID, expiresInSeconds int) (string, error) {
 	return signedToken, nil
 }
 
-func ValidateJWT(tokenStr string) (int, error) {
+func ValidateJWT(tokenStr string) (uID int, err error) {
 	godotenv.Load()
 	jwtSecret := os.Getenv("JWT_SECRET")
 
@@ -65,7 +65,7 @@ func ValidateJWT(tokenStr string) (int, error) {
 	}
 
 	uIDstr, _ := token.Claims.GetSubject()
-	uID, _ := strconv.Atoi(uIDstr)
+	uID, _ = strconv.Atoi(uIDstr)
 
 	return uID, nil
 }

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
+	"gitlab.com/demetrius.papas/bootdev-web-server/internal/authentication"
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
 )
 
@@ -33,7 +35,27 @@ func validateChirp(w http.ResponseWriter, r *http.Request, db *database.DB) {
 		c = profanityFilter(c, v)
 	}
 
-	chrp, err := db.CreateChirp(c)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	hParts := strings.Split(authHeader, " ")
+	if len(hParts) != 2 || hParts[0] != "Bearer" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	token := hParts[1]
+
+	uID, err := authentication.ValidateJWT(token)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	chrp, err := db.CreateChirp(c, uID)
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
 		return

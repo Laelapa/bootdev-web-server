@@ -29,7 +29,7 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 }
 
 // Creates a new chirp in the database and also returns it
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, authorID int) (Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, fmt.Errorf("%w", err)
@@ -40,6 +40,7 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	chrp := Chirp{
 		ID:   len(chirps) + 1,
 		Body: body,
+		AuthorID: authorID,
 	}
 	dbStructure.Chirps[chrp.ID] = chrp
 
@@ -49,4 +50,31 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	}
 
 	return chrp, nil
+}
+
+func (db *DB) DeleteChirp(chirpID int) error {
+	dbData, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	wIterator := 0
+	var wData DBStructure
+	wData.Users = dbData.Users
+
+	for _, v := range dbData.Chirps {
+		if v.ID == chirpID {
+			continue
+		}
+
+		wData.Chirps[wIterator] = v
+		wIterator++
+	}
+
+	err = db.writeDB(wData)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
