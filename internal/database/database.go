@@ -71,12 +71,13 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 		return fmt.Errorf("failed while marshalling json: %w", err)
 	}
 
-	db.mux.RLock()
-	dbFile, err := os.OpenFile(db.path, os.O_APPEND|os.O_WRONLY|os.O_TRUNC, 0600)
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	dbFile, err := os.OpenFile(db.path, os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open file for write: %w", err)
 	}
-	defer db.mux.RUnlock()
 	defer dbFile.Close()
 
 	_, err = dbFile.Write(jsonData)
@@ -85,5 +86,6 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 	}
 
 	fmt.Println("JSON data saved to disk")
+	fmt.Printf("%+v\n", DBSs)
 	return nil
 }

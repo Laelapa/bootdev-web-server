@@ -132,11 +132,6 @@ func (db *DB) GetUsers() ([]User, error) {
 }
 
 func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
-	users, err := db.GetUsers()
-	if err != nil {
-		return User{}, fmt.Errorf("%w", err)
-	}
-
 	DBs, err := db.loadDB()
 	if err != nil {
 		return User{}, fmt.Errorf("%w", err)
@@ -147,21 +142,26 @@ func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
 		return User{}, fmt.Errorf("%w", err)
 	}
 
-	for i, v := range users {
+	var user User
+
+	for i, v := range DBs.Users {
 		if v.ID == uID {
-			users[i].Email = uEmail
-			users[i].Password = pwdHash
+			user.Email = uEmail
+			user.Password = pwdHash
+			user.ID = DBs.Users[i].ID
+			user.RefToken = DBs.Users[i].RefToken
+			user.RefExp = DBs.Users[i].RefExp
+			DBs.Users[i] = user
+
+			err = db.writeDB(DBs)
+			if err != nil {
+				return User{}, fmt.Errorf("%w", err)
+			}
+
+			return User{ID: uID, Email: uEmail}, nil
 		}
-
-		DBs.Users[i] = users[i]
 	}
-
-	err = db.writeDB(DBs)
-	if err != nil {
-		return User{}, fmt.Errorf("%w", err)
-	}
-
-	return User{ID: uID, Email: uEmail}, nil
+	return User{}, ErrWrongCredentials
 }
 
 func (db *DB) updateUserRefreshToken(uID int, refToken string, refExp int64) error {
@@ -197,7 +197,8 @@ func (db *DB) CheckUserRefreshToken(refToken string) (userID int, err error) {
 
 	for i := range dbData.Users {
 		if refToken == dbData.Users[i].RefToken {
-			if dbData.Users[i].RefExp < time.Now().Unix() {
+			if dbData.Users[i].RefExp > time.Now().Unix() {
+				fmt.Printf("token checks out \n")
 				return dbData.Users[i].ID, nil
 			} else {
 				return 0, ErrInvalidRefToken
