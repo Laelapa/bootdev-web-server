@@ -43,6 +43,9 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) { fetchChirps(w, r, db) })
 	mux.HandleFunc("GET /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpGetter(w, r, db) })
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpDeleter(w, r, db) })
+	// Webhooks
+	mux.HandleFunc("POST /api/polka/webhooks", func(w http.ResponseWriter, r *http.Request) { webhookChirpyRed(w, r, db) })
+	
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,

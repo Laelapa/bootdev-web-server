@@ -20,11 +20,12 @@ func (c Chirp) GetID() int {
 }
 
 type User struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Password []byte `json:"password"`
-	RefToken string `json:"refresh_token"`
-	RefExp   int64  `json:"refresh_token_expiration"` // in unix time
+	ID          int    `json:"id"`
+	Email       string `json:"email"`
+	Password    []byte `json:"password"`
+	RefToken    string `json:"refresh_token"`
+	RefExp      int64  `json:"refresh_token_expiration"` // in unix time
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 func (u User) GetID() int {
@@ -32,10 +33,11 @@ func (u User) GetID() int {
 }
 
 type UserR struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Token    string `json:"token"`
-	RefToken string `json:"refresh_token"`
+	ID          int    `json:"id"`
+	Email       string `json:"email"`
+	Token       string `json:"token"`
+	RefToken    string `json:"refresh_token"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 func (u UserR) GetID() int {

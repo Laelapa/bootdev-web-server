@@ -57,6 +57,7 @@ func (db *DB) GetUserByEmailSanitized(email string) (UserR, error) {
 
 	usrResp.ID = usr.ID
 	usrResp.Email = usr.Email
+	usrResp.IsChirpyRed = usr.IsChirpyRed
 
 	return usrResp, nil
 }
@@ -131,7 +132,7 @@ func (db *DB) GetUsers() ([]User, error) {
 	return usr, nil
 }
 
-func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
+func (db *DB) UpdateUserCredentials(uID int, uEmail string, uPwd string) (User, error) {
 	DBs, err := db.loadDB()
 	if err != nil {
 		return User{}, fmt.Errorf("%w", err)
@@ -142,15 +143,11 @@ func (db *DB) UpdateUser(uID int, uEmail string, uPwd string) (User, error) {
 		return User{}, fmt.Errorf("%w", err)
 	}
 
-	var user User
-
 	for i, v := range DBs.Users {
 		if v.ID == uID {
+			user := DBs.Users[i]
 			user.Email = uEmail
 			user.Password = pwdHash
-			user.ID = DBs.Users[i].ID
-			user.RefToken = DBs.Users[i].RefToken
-			user.RefExp = DBs.Users[i].RefExp
 			DBs.Users[i] = user
 
 			err = db.writeDB(DBs)
@@ -257,9 +254,10 @@ func (db *DB) CreateUser(email string, pwd string) (UserR, error) {
 	}
 
 	usr := User{
-		ID:       len(users) + 1,
-		Email:    email,
-		Password: pwdHash,
+		ID:          len(users) + 1,
+		Email:       email,
+		Password:    pwdHash,
+		IsChirpyRed: false,
 	}
 	dbStructure.Users[usr.ID] = usr
 
@@ -272,6 +270,31 @@ func (db *DB) CreateUser(email string, pwd string) (UserR, error) {
 
 	usrResp.ID = usr.ID
 	usrResp.Email = usr.Email
+	usrResp.IsChirpyRed = false
 
 	return usrResp, nil
+}
+
+func (db *DB) UserP2W(uID int) (upgraded bool, err error) {
+	dbData, err := db.loadDB()
+	if err != nil {
+		return false, fmt.Errorf("error while trying to pull the db: %w", err)
+	}
+
+	for i, v := range dbData.Users {
+		if v.ID == uID {
+			u := dbData.Users[i]
+			u.IsChirpyRed = true
+			dbData.Users[i] = u
+
+			err = db.writeDB(dbData)
+			if err != nil {
+				return false, fmt.Errorf("error while trying to write the ref token to the db: %w", err)
+			}
+
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

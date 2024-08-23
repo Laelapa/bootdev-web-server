@@ -44,7 +44,7 @@ func userUpdateHandler(w http.ResponseWriter, r *http.Request, db *database.DB) 
 		return
 	}
 
-	usr, err := db.UpdateUser(uID, inc.Email, inc.Password)
+	usr, err := db.UpdateUserCredentials(uID, inc.Email, inc.Password)
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
 		return
