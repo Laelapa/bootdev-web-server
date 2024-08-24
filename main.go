@@ -12,6 +12,7 @@ import (
 type apiConfig struct {
 	FileserverHits int
 	jwtSecret      string
+	polka          string
 }
 
 func main() {
@@ -27,6 +28,7 @@ func main() {
 
 	var apiCfg apiConfig
 	apiCfg.jwtSecret = os.Getenv("JWT_SECRET")
+	apiCfg.polka = os.Getenv("POLKA")
 
 	mux := http.NewServeMux()
 	fServer := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
@@ -44,8 +46,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpGetter(w, r, db) })
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", func(w http.ResponseWriter, r *http.Request) { chirpDeleter(w, r, db) })
 	// Webhooks
-	mux.HandleFunc("POST /api/polka/webhooks", func(w http.ResponseWriter, r *http.Request) { webhookChirpyRed(w, r, db) })
-	
+	mux.HandleFunc("POST /api/polka/webhooks", func(w http.ResponseWriter, r *http.Request) { apiCfg.webhookChirpyRed(w, r, db) })
+
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,

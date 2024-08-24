@@ -7,7 +7,18 @@ import (
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
 )
 
-func webhookChirpyRed(w http.ResponseWriter, r *http.Request, db *database.DB) {
+func (apiCfg *apiConfig) webhookChirpyRed(w http.ResponseWriter, r *http.Request, db *database.DB) {
+	token, err := extractAuthToken(r)
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	if token != apiCfg.polka {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	type incomingJSON struct {
 		Event string `json:"event"`
 		Data  struct {
@@ -17,7 +28,7 @@ func webhookChirpyRed(w http.ResponseWriter, r *http.Request, db *database.DB) {
 
 	decoder := json.NewDecoder(r.Body)
 	inc := incomingJSON{}
-	err := decoder.Decode(&inc)
+	err = decoder.Decode(&inc)
 	if err != nil {
 		errRes(err, w, "Something went wrong", 500)
 		return
