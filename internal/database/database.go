@@ -86,6 +86,6 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 	}
 
 	fmt.Println("JSON data saved to disk")
-	fmt.Printf("%+v\n", DBSs)
+	//fmt.Printf("%+v\n", DBSs)
 	return nil
 }

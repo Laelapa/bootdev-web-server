@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
@@ -9,6 +10,8 @@ import (
 
 func (apiCfg *apiConfig) webhookChirpyRed(w http.ResponseWriter, r *http.Request, db *database.DB) {
 	token, err := extractAuthToken(r)
+	fmt.Printf("@webhookChirpyRed - token: %v\n", token)
+
 	if err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
