@@ -3,22 +3,37 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
 )
 
 func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
-	authorID, err := strconv.Atoi(r.URL.Query().Get("author_id"))
-	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
+	var err error
+
+	authorID := r.URL.Query().Get("author_id")
+	iauthorID := 0
+
+	if authorID != "" {
+		iauthorID, err = strconv.Atoi(authorID)
+		if err != nil {
+			http.Error(w, "Bad Request wtf bro", http.StatusBadRequest)
+			return
+		}
 	}
-	if authorID > 0 { // Return chirps of specified user
-		chirps, err := db.GetChirpsByUser(authorID)
+
+	sortQ := r.URL.Query().Get("sort")
+
+	if iauthorID > 0 { // Return chirps of specified user
+		chirps, err := db.GetChirpsByUser(iauthorID)
 		if err != nil {
 			errRes(err, w, "Something went wrong", 500)
 			return
+		}
+
+		if sortQ == "desc" {
+			slices.Reverse(chirps)
 		}
 
 		res, err := json.Marshal(chirps)
@@ -32,8 +47,8 @@ func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
 
 		return
 
-	} else if authorID < 0 {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+	} else if iauthorID < 0 {
+		http.Error(w, "Bad Request eyy 0", http.StatusBadRequest)
 		return
 
 	} else { // Return all chirps
@@ -42,6 +57,10 @@ func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {
 		if err != nil {
 			errRes(err, w, "Something went wrong", 500)
 			return
+		}
+
+		if sortQ == "desc" {
+			slices.Reverse(chirps)
 		}
 
 		res, err := json.Marshal(chirps)
