@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
+	"github.com/Laelapa/bootdev-web-server/internal/database"
 )
 
 func chirpGetter(w http.ResponseWriter, r *http.Request, db *database.DB) {

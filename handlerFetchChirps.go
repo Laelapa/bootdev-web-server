@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
+	"github.com/Laelapa/bootdev-web-server/internal/database"
 )
 
 func fetchChirps(w http.ResponseWriter, r *http.Request, db *database.DB) {

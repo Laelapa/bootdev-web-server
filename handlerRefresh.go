@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/authentication"
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
+	"github.com/Laelapa/bootdev-web-server/internal/authentication"
+	"github.com/Laelapa/bootdev-web-server/internal/database"
 )
 
 func refreshHandler(w http.ResponseWriter, r *http.Request, db *database.DB) {

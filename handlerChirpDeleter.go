@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/authentication"
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
+	"github.com/Laelapa/bootdev-web-server/internal/authentication"
+	"github.com/Laelapa/bootdev-web-server/internal/database"
 )
 
 func chirpDeleter(w http.ResponseWriter, r *http.Request, db *database.DB) {

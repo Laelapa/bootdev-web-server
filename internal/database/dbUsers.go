@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/authentication"
+	"github.com/Laelapa/bootdev-web-server/internal/authentication"
 	"golang.org/x/crypto/bcrypt"
 )
 

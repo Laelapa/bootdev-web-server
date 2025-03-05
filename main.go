@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"gitlab.com/demetrius.papas/bootdev-web-server/internal/database"
+	"github.com/Laelapa/bootdev-web-server/internal/database"
 )
 
 type apiConfig struct {
